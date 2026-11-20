@@ -4,19 +4,29 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from app.config import settings
 
 
+def _normalize_database_url(url: str) -> str:
+    """Ensure PostgreSQL URLs (e.g. Render's postgres://) use the installed psycopg v3 driver."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 def _build_engine():
+    db_url = _normalize_database_url(settings.database_url)
     connect_args = {}
-    if settings.database_url.startswith("sqlite"):
+    if db_url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
     engine = create_engine(
-        settings.database_url,
+        db_url,
         connect_args=connect_args,
         pool_pre_ping=True,
         future=True,
     )
 
     # Enforce foreign keys in SQLite when used for local MVP testing
-    if settings.database_url.startswith("sqlite"):
+    if db_url.startswith("sqlite"):
         @event.listens_for(engine, "connect")
         def _set_sqlite_pragma(dbapi_connection, _connection_record):
             cursor = dbapi_connection.cursor()

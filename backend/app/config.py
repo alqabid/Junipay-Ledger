@@ -1,4 +1,5 @@
-from typing import Literal
+from typing import Any, Literal
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,18 @@ class Settings(BaseSettings):
     auto_seed_sample_data: bool = False
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origin_regex: str | None = r"https://.*\.vercel\.app"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                import json
+                return json.loads(v)
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
 
 settings = Settings()
